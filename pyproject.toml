@@ -29,6 +29,10 @@ dependencies = ["psutil>=5.9"]
 panel = ["luma.oled>=3.13"]
 leds = ["rpi-ws281x>=5.0"]
 test = ["pytest>=7"]
+# Lint/format/type tooling. The formatter is pinned to a compatible release on
+# purpose: a formatter that changes between minor versions would reformat the
+# tree on an unrelated CI run and make the gate worthless.
+dev = ["ruff~=0.17.0", "mypy>=1.11", "pytest>=7"]
 
 [project.scripts]
 minitower-leds = "minitower.__main__:main_leds"
@@ -40,3 +44,52 @@ packages = ["minitower"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# democ_code/ and custom_scripts/ are vendored/legacy and deliberately untouched.
+extend-exclude = ["democ_code", "custom_scripts"]
+
+[tool.ruff.lint]
+select = [
+  "E", "W", # pycodestyle
+  "F",       # pyflakes
+  "I",       # import order
+  "UP",      # pyupgrade: modern syntax for the version we target
+  "B",       # bugbear
+  "C4",      # comprehensions
+  "SIM",     # simplifiable code
+  "RUF",     # ruff-specific
+  "BLE",     # blind except
+  "PTH",     # use pathlib
+]
+ignore = [
+  # The system layer deliberately returns None for anything it cannot read,
+  # instead of raising, because a monitoring display must not be able to take a
+  # service down. Each of these is commented where it appears, and
+  # tests/test_pages.py asserts that every page renders with nothing to report.
+  "BLE001",
+  "S110",
+  # Wide lines in the page layout are the data (label/value/tuple rows); wrapping
+  # them makes the layout harder to read, not easier.
+  "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests reach into internals on purpose, and tools/ manipulates sys.path first.
+"tests/*" = ["ARG001", "SLF001"]
+"tools/*" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["minitower"]
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+# Not strict: the panel's drawing layer takes Pillow's duck-typed objects, and
+# the whole point of the fake devices in the tests is that they are not luma
+# classes. Typing is therefore enforced where it is meaningful and checked for
+# consistency everywhere, rather than demanded everywhere.

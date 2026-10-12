@@ -6,6 +6,33 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    # Formatting, linting and type consistency are enforced rather than hoped
+    # for: without a gate like this a clean tree decays within a few commits.
+    # The tool versions are pinned in pyproject.toml's "dev" extra so a new ruff
+    # release cannot reformat the tree on an unrelated run.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Formatting
+        run: ruff format --check minitower tests tools
+
+      - name: Lint
+        run: ruff check minitower tests tools
+
+      - name: Types
+        run: mypy
+
   pytest:
     # Deliberately does NOT use a Raspberry Pi. The LED animation is a pure
     # function of elapsed time, and the panel goes through luma's real canvas()
