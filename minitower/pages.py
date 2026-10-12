@@ -19,12 +19,13 @@ and asserted in tests with no hardware attached.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from math import log10
-from typing import Callable
 
 from . import system, widgets
+from .config import PANEL_PAGES
 from .sampler import Sample, rate_human
 
 
@@ -32,13 +33,13 @@ from .sampler import Sample, rate_human
 class Ctx:
     """Everything a page needs to draw one frame."""
 
-    draw: object                  # PIL ImageDraw
-    font: object                  # row font
-    bold: object                  # title font
+    draw: object  # PIL ImageDraw
+    font: object  # row font
+    bold: object  # title font
     width: int
     height: int
-    row_h: int                    # vertical step between rows, from font metrics
-    font_path: str                # so a page can ask for a larger size of it
+    row_h: int  # vertical step between rows, from font metrics
+    font_path: str  # so a page can ask for a larger size of it
     sample: Sample
     history: list[float]
 
@@ -101,9 +102,21 @@ def page_sysinfo(ctx: Ctx) -> None:
         17,
         [
             ("Temp", f"{temp:.1f}C" if temp is not None else "--", temperature_fraction(temp)),
-            ("CPU", f"{sample.percent(sample.cpu_percent):.0f}%", sample.percent(sample.cpu_percent) / 100.0),
-            ("Mem", f"{sample.percent(sample.memory_percent):.0f}%", sample.percent(sample.memory_percent) / 100.0),
-            ("Disk", f"{sample.percent(sample.disk_percent):.0f}%", sample.percent(sample.disk_percent) / 100.0),
+            (
+                "CPU",
+                f"{sample.percent(sample.cpu_percent):.0f}%",
+                sample.percent(sample.cpu_percent) / 100.0,
+            ),
+            (
+                "Mem",
+                f"{sample.percent(sample.memory_percent):.0f}%",
+                sample.percent(sample.memory_percent) / 100.0,
+            ),
+            (
+                "Disk",
+                f"{sample.percent(sample.disk_percent):.0f}%",
+                sample.percent(sample.disk_percent) / 100.0,
+            ),
         ],
     )
 
@@ -173,7 +186,9 @@ def page_top(ctx: Ctx) -> None:
             y += ctx.row_h
     else:
         widgets.text_row(ctx.draw, ctx.font, 17, "sampling...", "", ctx.width)
-    widgets.text_row(ctx.draw, ctx.font, 50, "load", f"{one:.2f} {five:.2f} {fifteen:.2f}", ctx.width)
+    widgets.text_row(
+        ctx.draw, ctx.font, 50, "load", f"{one:.2f} {five:.2f} {fifteen:.2f}", ctx.width
+    )
 
 
 def page_clock(ctx: Ctx) -> None:
@@ -203,8 +218,9 @@ PAGES: dict[str, Page] = {
     "clock": Page("clock", page_clock, border=False),
 }
 
-#: What a fresh install rotates through.
-DEFAULT_PAGES = ("sysinfo", "graph", "net", "temp", "top", "clock")
+#: What a fresh install rotates through. Defined once, in config.py, so the
+#: default configuration and this registry cannot drift apart.
+DEFAULT_PAGES = PANEL_PAGES
 
 
 def resolve(names: tuple[str, ...]) -> list[Page]:
@@ -212,7 +228,6 @@ def resolve(names: tuple[str, ...]) -> list[Page]:
     unknown = [name for name in names if name not in PAGES]
     if unknown:
         raise KeyError(
-            f"unknown page(s) {', '.join(sorted(unknown))}; "
-            f"available: {', '.join(sorted(PAGES))}"
+            f"unknown page(s) {', '.join(sorted(unknown))}; available: {', '.join(sorted(PAGES))}"
         )
     return [PAGES[name] for name in names]
