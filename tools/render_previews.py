@@ -52,7 +52,11 @@ class MemoryDevice:
 
 
 def demo_sample() -> Sample:
-    """A representative sample, so previews look the same on every machine."""
+    """A representative sample, so previews look the same on every machine.
+
+    It deliberately includes a throttle flag: an empty one hid the fact that a
+    long flag was drawn straight through its row label on the thermal page.
+    """
     return Sample(
         hostname="pitower",
         uptime="1d 5h 3m",
@@ -66,7 +70,7 @@ def demo_sample() -> Sample:
         disk_total=1_800_000_000_000,
         temperature_c=40.4,
         clock_mhz=1500,
-        throttled=[],
+        throttled=["* low voltage"],
         iface="eth0",
         ip="10.73.77.24",
         tx_bytes=1_200_000_000,

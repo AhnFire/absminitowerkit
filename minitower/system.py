@@ -24,15 +24,22 @@ _THERMAL_ZONE = Path("/sys/class/thermal/thermal_zone0/temp")
 _PROC_UPTIME = Path("/proc/uptime")
 
 #: Meaning of the bits vcgencmd reports in `get_throttled`.
+#:
+#: The labels are deliberately short: they are rendered beside a row label on a
+#: 128 px panel, and the previous descriptive phrases ("soft temperature limit
+#: has occurred") were wider than the space they had - which is how the word
+#: "power" ended up with a voltage warning drawn through it. A leading "*" marks
+#: the sticky "has occurred" bits, which survive a reboot and are how you find
+#: out that a power supply is marginal.
 _THROTTLE_BITS = {
-    0: "undervoltage now",
-    1: "ARM frequency capped now",
-    2: "throttled now",
-    3: "soft temperature limit now",
-    16: "undervoltage has occurred",
-    17: "ARM frequency has been capped",
-    18: "throttling has occurred",
-    19: "soft temperature limit has occurred",
+    0: "low voltage",
+    1: "cpu capped",
+    2: "throttled",
+    3: "temp limit",
+    16: "* low voltage",
+    17: "* cpu capped",
+    18: "* throttled",
+    19: "* temp limit",
 }
 
 
@@ -165,10 +172,11 @@ def throttled() -> str | None:
 
 
 def throttled_reasons(value: str | None) -> list[str]:
-    """Decode a get_throttled value into human-readable events.
+    """Decode a get_throttled value into human-readable events, most severe first.
 
     An empty list means nothing has happened; a non-empty list is worth showing,
-    because these are sticky bits that survive across boots.
+    because these are sticky bits that survive across boots. The bits are declared
+    in severity order, so reasons[0] is the one to show when space is short.
     """
     if not value:
         return []
