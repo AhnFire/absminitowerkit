@@ -53,9 +53,7 @@ def _open_device(cfg: PanelConfig):
     try:
         from luma.oled.device import ssd1306
     except ImportError as exc:
-        raise PanelError(
-            "luma.oled is missing: sudo apt install python3-luma.oled"
-        ) from exc
+        raise PanelError("luma.oled is missing: sudo apt install python3-luma.oled") from exc
 
     try:
         return ssd1306(port=cfg.i2c_port, address=cfg.i2c_address)
@@ -73,11 +71,7 @@ class Panel:
     def __init__(self, cfg: PanelConfig, device=None, font=None) -> None:
         self.cfg = cfg.validated()
         self.pages = pages_module.resolve(self.cfg.pages)
-        self._font = (
-            font
-            if font is not None
-            else load_font(self.cfg.font_path, self.cfg.font_size)
-        )
+        self._font = font if font is not None else load_font(self.cfg.font_path, self.cfg.font_size)
         self._bold = load_font(self.cfg.font_bold_path, self.cfg.font_size)
         self._device = device if device is not None else _open_device(self.cfg)
         self._stop = threading.Event()

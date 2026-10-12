@@ -34,8 +34,7 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
         type=Path,
         default=None,
         metavar="FILE",
-        help="TOML configuration file (default: %s)"
-        % config_module.DEFAULT_CONFIG_PATH,
+        help=f"TOML configuration file (default: {config_module.DEFAULT_CONFIG_PATH})",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
 
