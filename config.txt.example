@@ -1,0 +1,42 @@
+# ============================================================================
+#  52Pi / GeeekPi ABS Mini Tower Kit for NAS V2 (ZP-0130-4wire)
+#  config.txt fragment - append to /boot/firmware/config.txt, then reboot.
+#
+#  install_trixie.sh applies exactly this for you; this file is here for
+#  people who prefer to configure things by hand.
+# ============================================================================
+
+# --- 0.96" OLED: SSD1306, 128x64, I2C bus 1, address 0x3C -------------------
+dtparam=i2c_arm=on
+
+# --- V2 4-wire fan: PWM wire is GPIO14 = physical pin 8 ---------------------
+#  The kernel drives the whole temperature curve, registers a real cooling
+#  device and uses no measurable CPU (the userspace bit-bang examples that
+#  circulate for this kit can burn >10% CPU - upstream issue #17).
+#
+#  !! fan_gpio MUST be given explicitly. The overlay default is 18, and pin 18
+#  !! is the WS281X pin for the RGB fan light + mood light. Leaving it at the
+#  !! default makes fan control and the LED driver fight over one pin.
+#
+#  fan_tempN     : CPU temperature in millicelsius to enter that step
+#  fan_tempN_hyst: hysteresis, default 5000 (5 C) per step
+#  fan_tempN_speed: 0-255 -> 0-100% PWM duty
+#
+#  These values are deliberately quieter than the overlay defaults
+#  (default starts the fan at 55 C / 45% duty):
+dtoverlay=pwm-gpio-fan,fan_gpio=14,fan_temp0=50000,fan_temp1=55000,fan_temp2=60000,fan_temp3=65000,fan_temp0_speed=90,fan_temp1_speed=140,fan_temp2_speed=200,fan_temp3_speed=255
+
+# --- After rebooting, verify -------------------------------------------------
+#   cat /sys/class/thermal/cooling_device*/type        # -> pwm-fan
+#   cat /sys/class/thermal/cooling_device*/cur_state   # 0-4, follows the curve
+#   vcgencmd measure_temp
+#   i2cdetect -y 1                                     # -> 3c present
+#
+# If there is no cooling_device* at all, the overlay did not load: check
+#   dmesg | grep -i pwm
+#   ls /boot/firmware/overlays/pwm-gpio-fan.dtbo
+#
+# Quick sanity check without rebooting (turn the fan by hand, 0-255 duty):
+#   sudo dtoverlay pwm-gpio-fan fan_gpio=14     # load now
+#   sudo dtoverlay -l                           # list loaded overlays
+#   sudo dtoverlay -r pwm-gpio-fan              # unload

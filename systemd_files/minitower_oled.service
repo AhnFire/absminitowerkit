@@ -1,15 +1,26 @@
 [Unit]
-Description=Minitower OLED Service
-DefaultDependencies=no
+Description=Minitower OLED status display (SSD1306 128x64 @ 0x3C on i2c-1)
+After=multi-user.target
 StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Service]
 Type=simple
-ExecStart=sudo /bin/bash -c '/usr/bin/python3 /usr/local/minitower/sysinfo.py'
-RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /usr/local/minitower/sysinfo.py
 Restart=always
+RestartSec=10
+User=root
 
 [Install]
 WantedBy=multi-user.target
 
+# Differences vs the original systemd_files/minitower_oled.service:
+#   - no "sudo" inside ExecStart. Upstream issue #15 is this unit failing with
+#     "status=1/FAILURE" then hitting "Start request repeated too quickly";
+#     running sudo inside a service adds an unnecessary failure path.
+#   - no RemainAfterExit=yes. With Type=simple it makes the unit report
+#     "active (exited)" even when nothing is running, which is why some users
+#     end up with an orphaned python process that systemctl cannot stop.
+#   - RestartSec=10 instead of the default 100 ms, so a failing display cannot
+#     spin the unit into its StartLimitBurst immediately.
+#   - no DefaultDependencies=no: it started before multi-user.target was up.

@@ -1,18 +1,25 @@
 [Unit]
-Description=Minitower moodlight Service
-DefaultDependencies=no
+Description=Minitower moodlight (WS281X RGB fan light + mood light, GPIO18)
+After=multi-user.target
 StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Service]
-RootDirectory=/ 
-User=root
 Type=simple
-ExecStart=sudo /usr/bin/moodlight 
-RemainAfterExit=yes
+ExecStart=/usr/bin/moodlight
 Restart=always
 RestartSec=30
+User=root
 
 [Install]
 WantedBy=multi-user.target
 
+# Differences vs the original systemd_files/minitower_moodlight.service:
+#   - no "sudo" inside ExecStart (systemd is already root here; it only adds
+#     a failure mode)
+#   - no RemainAfterExit=yes (that makes a dead unit report "active (exited)",
+#     so "systemctl stop" - the wiki's own advice - does not reliably stop it)
+#   - no DefaultDependencies=no (nothing here needs to start before the basic
+#     system is up)
+#   - no RootDirectory=/ (a no-op that only confuses readers)
+#   - RestartSec=30 kept, so a crash loop cannot hammer the CPU
