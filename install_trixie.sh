@@ -172,7 +172,10 @@ if [ "$DRY_RUN" = 0 ] && [ ! -f /etc/minitower/config.toml ]; then
 fi
 # The runtime libraries come from apt (python3-luma.oled, python3-psutil,
 # python3-pil), so pip is told not to duplicate them into /usr/local.
-run python3 -m pip install --break-system-packages --no-deps "$SCRIPT_DIR"
+# --force-reinstall matters: the units run the *installed* copy, so without it a
+# re-run of this installer after a "git pull" would leave the old code in place
+# and pip would simply report "Requirement already satisfied".
+run python3 -m pip install --break-system-packages --upgrade --force-reinstall --no-deps "$SCRIPT_DIR"
 
 # ============================================================= 3. LEDs -------
 case "$LED_MODE" in
