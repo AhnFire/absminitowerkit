@@ -23,8 +23,9 @@ import os
 import signal
 import threading
 import time
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Protocol, Sequence
+from typing import Protocol
 
 from .config import LedConfig
 
@@ -46,7 +47,11 @@ class StripLike(Protocol):
 
 def _open_strip(cfg: LedConfig) -> StripLike:
     """Open the strip, turning the library's failure modes into clean errors."""
-    if os.geteuid() != 0:
+    # getattr rather than os.geteuid(): that only exists on POSIX, and this keeps
+    # the module importable and type-clean elsewhere. The /dev/vcio check below
+    # is what actually rejects a machine that is not a Pi.
+    geteuid = getattr(os, "geteuid", None)
+    if geteuid is not None and geteuid() != 0:
         raise LedInitError(
             "the WS281X driver needs root (it maps the DMA/PWM registers via "
             "/dev/vcio); run it under systemd as root, or with sudo"
@@ -58,8 +63,7 @@ def _open_strip(cfg: LedConfig) -> StripLike:
         import rpi_ws281x
     except ImportError as exc:  # pragma: no cover - depends on the host
         raise LedInitError(
-            "rpi_ws281x is not installed: "
-            "sudo pip3 install --break-system-packages rpi-ws281x"
+            "rpi_ws281x is not installed: sudo pip3 install --break-system-packages rpi-ws281x"
         ) from exc
 
     strip_order = getattr(rpi_ws281x, cfg.strip_order, None)
@@ -85,7 +89,7 @@ def _open_strip(cfg: LedConfig) -> StripLike:
 
 def build_gamma(gamma: float) -> list[int]:
     """256-entry table mapping an ideal intensity to a perceived one."""
-    return [min(255, int(round((i / 255.0) ** gamma * 255.0))) for i in range(256)]
+    return [min(255, round((i / 255.0) ** gamma * 255.0)) for i in range(256)]
 
 
 class LedRing:
@@ -129,9 +133,7 @@ class LedRing:
     def apply(self, frame: Sequence[RGB]) -> None:
         """Push one frame - the only method here that touches hardware."""
         if len(frame) != self.cfg.pixel_count:
-            raise ValueError(
-                f"frame has {len(frame)} pixels, the strip has {self.cfg.pixel_count}"
-            )
+            raise ValueError(f"frame has {len(frame)} pixels, the strip has {self.cfg.pixel_count}")
         for index, rgb in enumerate(frame):
             self._strip.setPixelColor(index, self._pack(rgb))
         self._strip.show()
@@ -178,7 +180,7 @@ class LedRing:
 
 def describe(frame: Iterable[RGB]) -> str:
     """Compact frame rendering, for --dry-run output and test failures."""
-    return " ".join("#%02X%02X%02X" % rgb for rgb in frame)
+    return " ".join("#{:02X}{:02X}{:02X}".format(*rgb) for rgb in frame)
 
 
 class NullStrip:
@@ -192,7 +194,7 @@ class NullStrip:
         self.recorded: list[list[int]] = []
         self._buffer: list[int] = [0] * pixel_count
 
-    def setPixelColor(self, index: int, color: int) -> None:  # noqa: N802 - library spelling
+    def setPixelColor(self, index: int, color: int) -> None:
         self._buffer[index] = color
 
     def show(self) -> None:
