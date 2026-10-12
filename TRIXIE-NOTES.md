@@ -60,10 +60,15 @@ cat /sys/class/thermal/cooling_device*/cur_state   # 0-4, follows the curve
 See `config.txt.example` for tuning notes and related overlays
 (`gpio-fan` for simple on/off, `i2c-fan` for I2C controller chips).
 
-## Two extra fixes in this fork
+## Extra fixes, all verified on real hardware
+
+Tested end to end on a Pi 4 Model B (8 GB) with the ZP-0130-4wire kit running
+**Raspberry Pi OS Trixie Lite 64-bit, kernel 6.18.50**. The last three fixes
+below were found by actually running this installer on that box - they are not
+theoretical.
 
 The first is credited to `tannerln7`'s independent upstream PR #19, which
-arrived at the same fix; the second is a bug found on this hardware.
+arrived at the same fix.
 
 * **OLED startup race.** `/dev/i2c-1` can appear after systemd has begun starting
   services, which leaves the display blank after a reboot.
@@ -77,12 +82,25 @@ arrived at the same fix; the second is a bug found on this hardware.
   the interface carrying the IPv4 default route - validated on a Pi 4, where it
   resolves to `eth0` - with a fallback that ignores docker/veth/bridge/tun
   interfaces.
+* **`i2c-dev` was never loaded, so `/dev/i2c-1` did not exist.** This is almost
+  certainly the real cause of upstream issue #16 ("RGB turned on, but OLED does
+  not display anything"). `dtparam=i2c_arm=on` only brings up the bus
+  *controller* (`i2c_bcm2835`); the character device that every userspace I2C
+  client opens comes from the **`i2c-dev`** module, and Trixie **Lite** does not
+  load it by default. Observed directly: `ls /dev/i2c*` empty, `modprobe i2c-dev`
+  and `/dev/i2c-1` appears, `i2cdetect -y 1` then shows `3c`. The installer now
+  writes `/etc/modules-load.d/i2c-dev.conf`.
+* **`fonts-dejavu-core` is missing from Lite**, but `democ_code/sysinfo.py` asks
+  PIL for `/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf`. PIL raises
+  `OSError: cannot open resource`, which crash-looped the OLED service
+  (`status=1/FAILURE`). The package is now installed and the script falls back to
+  Pillow's built-in font so a missing font can never kill the display again.
 
 ## What is preserved
 
 Unchanged from upstream so existing installs keep working:
 
-* `democ_code/demo_opts.py`, `democ_code/sysinfo.py`, `democ_code/moodlight`
+* `democ_code/demo_opts.py`, `democ_code/moodlight`
 * `install_bookworm.sh` (left alone; use `install_trixie.sh` on Pi OS 6)
 * the OLED display layout and the `minitower_*` service names the 52Pi wiki
   refers to
