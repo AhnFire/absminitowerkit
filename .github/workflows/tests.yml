@@ -1,0 +1,36 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    # Deliberately does NOT use a Raspberry Pi. The LED animation is a pure
+    # function of elapsed time, and the panel goes through luma's real canvas()
+    # with only the I2C transport faked.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "psutil>=5.9" "luma.oled>=3.13" pytest
+          python -m pip install --no-deps -e .
+
+      - name: Run the test suite
+        run: python -m pytest -q
+
+      - name: Show the LED gradient this revision produces
+        if: always()
+        run: python -m minitower leds --dry-run

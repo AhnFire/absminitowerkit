@@ -1,25 +1,26 @@
 [Unit]
-Description=Minitower moodlight (WS281X RGB fan light + mood light, GPIO18)
+Description=Minitower fan light / mood light (WS281X, minitower-leds)
 After=multi-user.target
 StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/moodlight
-Restart=always
-RestartSec=30
+ExecStart=/usr/local/bin/minitower-leds --config /etc/minitower/config.toml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+# The WS281X driver maps the DMA/PWM registers through /dev/vcio, so it needs
+# root. It blanks the strip on the way out, which the old C binary did not - that
+# is why the LEDs used to stay latched on the last frame after a stop.
 User=root
 
 [Install]
 WantedBy=multi-user.target
 
 # Differences vs the original systemd_files/minitower_moodlight.service:
-#   - no "sudo" inside ExecStart (systemd is already root here; it only adds
-#     a failure mode)
-#   - no RemainAfterExit=yes (that makes a dead unit report "active (exited)",
-#     so "systemctl stop" - the wiki's own advice - does not reliably stop it)
-#   - no DefaultDependencies=no (nothing here needs to start before the basic
-#     system is up)
-#   - no RootDirectory=/ (a no-op that only confuses readers)
-#   - RestartSec=30 kept, so a crash loop cannot hammer the CPU
+#   - ExecStart runs minitower-leds instead of the vendor's compiled `moodlight`
+#     binary, which was upstream's 8x8 matrix demo (64 pixels) driven at 15 fps
+#     against a 4-6 LED strip, with no geometry arguments at all
+#   - Restart=on-failure rather than always, so a clean exit stays stopped
+#   - TimeoutStopSec, so a stuck shutdown cannot hang the unit

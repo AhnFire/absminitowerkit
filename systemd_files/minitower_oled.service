@@ -11,9 +11,10 @@ Type=simple
 # evaluates a condition once, so a slow I2C device means the unit is skipped for
 # the entire boot. Wait for the device instead.
 ExecStartPre=/bin/sh -c 'for i in $(seq 30); do [ -e /dev/i2c-1 ] && exit 0; sleep 1; done; echo "/dev/i2c-1 did not appear after 30s" >&2; exit 1'
-ExecStart=/usr/bin/python3 /usr/local/minitower/sysinfo.py
-Restart=always
-RestartSec=10
+ExecStart=/usr/local/bin/minitower-panel --config /etc/minitower/config.toml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
 User=root
 
 [Install]
@@ -26,9 +27,11 @@ WantedBy=multi-user.target
 #   - no RemainAfterExit=yes. With Type=simple it makes the unit report
 #     "active (exited)" even when nothing is running, which is why some users
 #     end up with an orphaned python process that systemctl cannot stop.
-#   - RestartSec=10 instead of the default 100 ms, so a failing display cannot
+#   - RestartSec=5 instead of the default 100 ms, so a failing display cannot
 #     spin the unit into its StartLimitBurst immediately.
 #   - no DefaultDependencies=no: it started before multi-user.target was up.
 #   - ExecStartPre waits for /dev/i2c-1 (idea credited to tannerln7's PR #19,
 #     which independently arrived at the same fix). Reimplemented here as a
 #     plain sh loop so no bash {1..30} brace expansion is required.
+#   - ExecStart runs minitower-panel, which rotates pages itself, replacing the
+#     sysinfo.py + sys_info_cycle.sh spawn/sleep/kill pair.

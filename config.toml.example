@@ -1,0 +1,60 @@
+# /etc/minitower/config.toml
+#
+# Every hardware value the two accessory programs use lives here. The programs
+# run happily without this file (the built-in defaults match the ZP-0130), so
+# this exists to be *changed*.
+#
+#   sudo systemctl restart minitower_oled minitower_moodlight   # after editing
+
+[leds]
+# Number of addressable LEDs on the WS281X chain: 1 on the OLED driver board and
+# the fan lights. Use `minitower-leds --dry-run` to sanity-check a change.
+pixel_count = 6
+
+# BCM pin driving the data line. GPIO18 is what the ZP-0130 wires up, and it is
+# also a hardware PWM pin, which is why the fan's own PWM cannot use it too.
+gpio = 18
+
+# 0-255. This is applied by the driver, so it costs no CPU.
+brightness = 128
+
+# gradient - a hue gradient spread around the ring, drifting slowly
+# solid    - the whole ring fades through the colour wheel together
+# off      - blank the strip
+mode = "gradient"
+
+# Hue difference between neighbouring pixels (degrees). 0 = all the same colour.
+# 360 / pixel_count gives a complete wheel around the ring; smaller values give
+# a gentler gradient.
+hue_spread_deg = 60.0
+
+# How fast the pattern drifts. 6.0 is one full colour wheel per minute, which is
+# slow enough to be a mood light rather than a strobe. Try 2.0 for very calm.
+hue_speed_deg_per_s = 6.0
+
+# Frames per second. At a few degrees per second, 30 Hz makes each step
+# imperceptible (0.2 degrees per frame).
+frame_hz = 30.0
+
+# Perceptual correction. 2.2 makes low intensities look smooth instead of
+# collapsing to black; 1.0 disables it.
+gamma = 2.2
+
+# Byte order of the strip. WS2812_STRIP is the standard GRB used by almost every
+# WS2812B strip. The vendor's own moodlight binary used WS2811_STRIP_GBR, which
+# swaps red and blue - if your colours look wrong, try that value here.
+strip_order = "WS2812_STRIP"
+
+[panel]
+i2c_port = 1
+i2c_address = 0x3C
+font_size = 11
+
+# Seconds each page is shown before rotating.
+page_seconds = 12.0
+
+# Seconds between redraws of the current page.
+refresh_seconds = 2.0
+
+# Which pages to rotate through, in order. Available: load, mem, disk, net, temp.
+pages = ["load", "mem", "disk", "net", "temp"]

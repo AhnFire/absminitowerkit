@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "minitower"
+version = "1.0.0"
+description = "Accessory drivers for the GeeekPi / 52Pi Mini Tower NAS V2 (ZP-0130) case"
+readme = "TRIXIE-NOTES.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["raspberry-pi", "ws281x", "ssd1306", "luma.oled", "mini-tower", "zp-0130"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: System :: Hardware",
+]
+
+# psutil is only needed for the memory/disk/network pages, but it is a hard
+# dependency because those pages are enabled by default.
+dependencies = ["psutil>=5.9"]
+
+[project.optional-dependencies]
+# On Raspberry Pi OS the runtime libraries come from apt (python3-luma.oled,
+# python3-psutil), which is why the installer uses `pip install --no-deps`.
+# The test suite needs nothing beyond pytest and luma.core's renderer.
+panel = ["luma.oled>=3.13"]
+leds = ["rpi-ws281x>=5.0"]
+test = ["pytest>=7"]
+
+[project.scripts]
+minitower-leds = "minitower.__main__:main_leds"
+minitower-panel = "minitower.__main__:main_panel"
+
+[tool.setuptools]
+packages = ["minitower"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
