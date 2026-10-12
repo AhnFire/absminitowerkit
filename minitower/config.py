@@ -29,7 +29,9 @@ PANEL_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
 #: Bold face for page titles. The reference system demos have no visual
 #: hierarchy at all; a bold title row is the cheapest way to add some.
 PANEL_FONT_BOLD_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
-#: What a fresh install rotates through - must match minitower.pages.PAGES.
+#: What a fresh install rotates through, in order. Single source of truth:
+#: minitower.pages.DEFAULT_PAGES aliases this, and tests/test_config.py asserts
+#: every name here exists in the page registry.
 PANEL_PAGES = ("sysinfo", "graph", "net", "temp", "top", "clock")
 
 
@@ -68,7 +70,7 @@ class LedConfig:
     gamma: float = 2.2
     strip_order: str = DEFAULT_STRIP_ORDER
 
-    def validated(self) -> "LedConfig":
+    def validated(self) -> LedConfig:
         if not 1 <= self.pixel_count <= 4096:
             raise ConfigError(f"pixel_count must be 1..4096, got {self.pixel_count}")
         if not 0 <= self.brightness <= 255:
@@ -107,13 +109,11 @@ class PanelConfig:
     page_seconds: float = 10.0
     pages: tuple[str, ...] = PANEL_PAGES
 
-    def validated(self) -> "PanelConfig":
+    def validated(self) -> PanelConfig:
         if not 0 <= self.i2c_port <= 99:
             raise ConfigError(f"i2c_port out of range: {self.i2c_port}")
         if not 0x03 <= self.i2c_address <= 0x77:
-            raise ConfigError(
-                f"i2c_address must be a 7-bit address, got 0x{self.i2c_address:02X}"
-            )
+            raise ConfigError(f"i2c_address must be a 7-bit address, got 0x{self.i2c_address:02X}")
         if self.refresh_seconds <= 0:
             raise ConfigError("refresh_seconds must be > 0")
         if self.page_seconds <= 0:
@@ -128,7 +128,7 @@ class Config:
     leds: LedConfig = LedConfig()
     panel: PanelConfig = PanelConfig()
 
-    def validated(self) -> "Config":
+    def validated(self) -> Config:
         return Config(leds=self.leds.validated(), panel=self.panel.validated())
 
 
