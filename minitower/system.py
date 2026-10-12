@@ -13,11 +13,15 @@ import os
 import socket
 import subprocess
 from pathlib import Path
+from subprocess import SubprocessError
 
 #: Interfaces that are never the "real" uplink.
 VIRTUAL_IFACE_PREFIXES = ("lo", "docker", "br-", "veth", "virbr", "tun", "tap", "wg", "zt")
 
 _THERMAL_ZONE = Path("/sys/class/thermal/thermal_zone0/temp")
+#: Kept as module constants so tests can point them at a temporary file rather
+#: than having to fake the whole filesystem.
+_PROC_UPTIME = Path("/proc/uptime")
 
 #: Meaning of the bits vcgencmd reports in `get_throttled`.
 _THROTTLE_BITS = {
@@ -42,7 +46,10 @@ def _run(args: list[str], timeout: float = 3.0) -> str | None:
             timeout=timeout,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, SubprocessError):
+        # SubprocessError is imported directly rather than reached through the
+        # module: it keeps the handler working even if `subprocess` is replaced,
+        # which is exactly what the tests do.
         return None
     if completed.returncode != 0:
         return None
@@ -116,7 +123,7 @@ def load_average() -> tuple[float, float, float]:
 
 def uptime_seconds() -> float:
     try:
-        return float(Path("/proc/uptime").read_text().split()[0])
+        return float(_PROC_UPTIME.read_text().split()[0])
     except (OSError, IndexError, ValueError):
         return 0.0
 
