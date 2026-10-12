@@ -13,6 +13,7 @@ portion showing the proportion.
 from __future__ import annotations
 
 PAD = 3  # gap between the frame and the content
+COLUMN_GAP = 3  # minimum blank pixels between a label and its value
 BAR_H = 7  # bar outer height (5px of fill inside it)
 LABEL_X = PAD + 1
 
@@ -30,6 +31,26 @@ def text_width(draw, text: str, font) -> int:
     return int(draw.textlength(text, font=font))
 
 
+def clip_text(draw, text: str, font, max_width: int) -> str:
+    """Trim `text` until it measures within `max_width`.
+
+    Monospace makes this trivial, and it is the difference between an abbreviated
+    value and a value drawn straight over its own label - which is what a long
+    throttle flag used to do to the word "power" on the thermal page.
+    """
+    if max_width <= 0:
+        return ""
+    trimmed = text
+    while trimmed and text_width(draw, trimmed, font) > max_width:
+        trimmed = trimmed[:-1]
+    return trimmed
+
+
+def value_space(draw, label: str, font, right_edge: int) -> int:
+    """The width a value has before it would reach its label."""
+    return right_edge - LABEL_X - text_width(draw, label, font) - COLUMN_GAP
+
+
 def text_right(draw, font, y: int, text: str, right_edge: int) -> None:
     """Draw `text` so that it ends at `right_edge`."""
     draw.text((right_edge - text_width(draw, text, font), y), text, font=font, fill="white")
@@ -39,7 +60,9 @@ def title(draw, font, y: int, text: str, width: int, *, right: str | None = None
     """Bold label on the left, optional right-aligned value."""
     draw.text((LABEL_X, y), text, font=font, fill="white")
     if right:
-        text_right(draw, font, y, right, width - 1 - LABEL_X)
+        edge = width - 1 - LABEL_X
+        value = clip_text(draw, right, font, value_space(draw, text, font, edge))
+        text_right(draw, font, y, value, edge)
 
 
 def value_column(width: int) -> int:
@@ -70,7 +93,10 @@ def bar_row(draw, font, y: int, label: str, value: str, width: int, fraction: fl
     meaningful proportion (a throttle flag, a lifetime total).
     """
     draw.text((LABEL_X, y), label, font=font, fill="white")
-    text_right(draw, font, y, value, value_column(width))
+    column = value_column(width)
+    text_right(
+        draw, font, y, clip_text(draw, value, font, value_space(draw, label, font, column)), column
+    )
     if fraction is None:
         return
     x0, x1 = bar_span(width)
@@ -78,9 +104,16 @@ def bar_row(draw, font, y: int, label: str, value: str, width: int, fraction: fl
 
 
 def text_row(draw, font, y: int, left: str, right: str, width: int) -> None:
-    """Two-column text row for values that are not proportions."""
+    """Two-column text row for values that are not proportions.
+
+    The value is clipped to whatever space the label leaves, so a long value can
+    never be drawn over its label. Reported from the Pi: "the word power and
+    undervoltage are overlapping".
+    """
     draw.text((LABEL_X, y), left, font=font, fill="white")
-    text_right(draw, font, y, right, width - 1 - LABEL_X)
+    edge = width - 1 - LABEL_X
+    value = clip_text(draw, right, font, value_space(draw, left, font, edge))
+    text_right(draw, font, y, value, edge)
 
 
 def centre(draw, font, y: int, text: str, width: int) -> None:
