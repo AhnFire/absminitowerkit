@@ -37,6 +37,11 @@ echo "[*] removing installed scripts"
 run rm -rf /usr/local/minitower
 run rm -f /usr/bin/moodlight
 
+echo "[*] removing the minitower package"
+run python3 -m pip uninstall -y minitower 2>/dev/null || true
+run rm -f /usr/local/bin/minitower-leds /usr/local/bin/minitower-panel
+run rm -rf /etc/minitower
+
 if [ -n "$CONFIG" ]; then
   echo "[*] reverting $CONFIG"
   if [ "$DRY_RUN" = 1 ]; then
@@ -55,9 +60,8 @@ if [ -n "$CONFIG" ]; then
 fi
 
 echo "[i] Left in place on purpose:"
-echo "    - the luma.examples clone in the user's home directory"
-echo "    - packages installed by apt (remove manually if you want)"
-echo "    - a custom LED unit's scripts under /usr/local/minitower (removed above)"
+echo "    - packages installed by apt (python3-luma.oled, python3-psutil, fonts-dejavu-core, ...)"
+echo "    - any other apt packages pulled in by CORE_PKGS"
 if [ "$DRY_RUN" = 0 ]; then
   echo "[*] Done. Reboot to unload the fan overlay."
 fi
