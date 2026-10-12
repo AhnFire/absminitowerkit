@@ -24,9 +24,9 @@ from . import system
 
 log = logging.getLogger("minitower.sampler")
 
-HISTORY = 40          # graph samples kept: 40 x 2 s = 80 s of history
-CLOCK_TTL = 10.0      # vcgencmd is cheap once, but not every 2 s forever
-IFACE_TTL = 30.0      # the default route rarely changes
+HISTORY = 40  # graph samples kept: 40 x 2 s = 80 s of history
+CLOCK_TTL = 10.0  # vcgencmd is cheap once, but not every 2 s forever
+IFACE_TTL = 30.0  # the default route rarely changes
 
 
 @dataclass
@@ -51,7 +51,7 @@ class Sample:
     ip: str | None = None
     tx_bytes: int = 0
     rx_bytes: int = 0
-    tx_rate: float = 0.0          # bytes per second
+    tx_rate: float = 0.0  # bytes per second
     rx_rate: float = 0.0
     top: list[tuple[str, float]] = field(default_factory=list)
 
@@ -153,8 +153,12 @@ class Sampler:
                     sample.rx_bytes = counters.bytes_recv
                     elapsed = now - self.latest.taken_at
                     if self.latest.taken_at > 0 and elapsed > 0:
-                        sample.tx_rate = max(0.0, (sample.tx_bytes - self.latest.tx_bytes) / elapsed)
-                        sample.rx_rate = max(0.0, (sample.rx_bytes - self.latest.rx_bytes) / elapsed)
+                        sample.tx_rate = max(
+                            0.0, (sample.tx_bytes - self.latest.tx_bytes) / elapsed
+                        )
+                        sample.rx_rate = max(
+                            0.0, (sample.rx_bytes - self.latest.rx_bytes) / elapsed
+                        )
             if self.want_top:
                 sample.top = self._top_processes()
         except Exception as exc:  # pragma: no cover - psutil is optional at runtime
