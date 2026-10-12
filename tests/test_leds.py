@@ -7,9 +7,12 @@ main reason minitower.leds is shaped the way it is.
 
 import colorsys
 import itertools
+import sys
+import types
 
 import pytest
 
+from minitower import leds as leds_module
 from minitower.config import LedConfig
 from minitower.leds import LedRing, NullStrip, build_gamma
 
@@ -99,3 +102,57 @@ def test_brightness_is_applied_by_the_driver_not_the_animation():
     dim, _ = make_ring(brightness=40, gamma=1.0)
     bright, _ = make_ring(brightness=255, gamma=1.0)
     assert dim.frame_for(3.0) == bright.frame_for(3.0)
+
+
+class PresentPath:
+    """A Path stand-in whose target exists, so _open_strip gets past that check."""
+
+    def __init__(self, *_args) -> None:
+        pass
+
+    def exists(self) -> bool:
+        return True
+
+
+def test_opening_the_strip_needs_root(monkeypatch):
+    """The binding maps DMA registers through /dev/vcio. Without root it used to
+    segfault instead of raising, so this check exists to fail cleanly."""
+    monkeypatch.setattr(leds_module.os, "geteuid", lambda: 1000, raising=False)
+
+    with pytest.raises(leds_module.LedInitError, match="root"):
+        leds_module._open_strip(LedConfig())
+
+
+def test_opening_the_strip_needs_the_vcio_device(monkeypatch):
+    class NoVcio:
+        def __init__(self, *_args) -> None:
+            pass
+
+        def exists(self) -> bool:
+            return False
+
+    monkeypatch.setattr(leds_module.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(leds_module, "Path", NoVcio)
+
+    with pytest.raises(leds_module.LedInitError, match="vcio"):
+        leds_module._open_strip(LedConfig())
+
+
+def test_a_missing_ws281x_binding_says_how_to_install_it(monkeypatch):
+    monkeypatch.setattr(leds_module.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(leds_module, "Path", PresentPath)
+    monkeypatch.setitem(sys.modules, "rpi_ws281x", None)
+
+    with pytest.raises(leds_module.LedInitError, match="pip3 install"):
+        leds_module._open_strip(LedConfig())
+
+
+def test_an_unknown_strip_order_is_rejected(monkeypatch):
+    """The vendor binary assumed GBR and the Adafruit scripts assumed GRB, so a
+    typo here would silently swap red and blue."""
+    monkeypatch.setattr(leds_module.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(leds_module, "Path", PresentPath)
+    monkeypatch.setitem(sys.modules, "rpi_ws281x", types.ModuleType("rpi_ws281x"))
+
+    with pytest.raises(leds_module.LedInitError, match="strip order"):
+        leds_module._open_strip(LedConfig(strip_order="NOT_A_REAL_ORDER"))
