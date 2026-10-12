@@ -18,25 +18,24 @@ from minitower import system
         ("", []),
         ("0x0", []),
         ("not-hex", []),
-        ("0x1", ["undervoltage now"]),
-        ("0x8", ["soft temperature limit now"]),
-        ("0x40000", ["throttling has occurred"]),
-        ("0x50000", ["undervoltage has occurred", "throttling has occurred"]),
-        (
-            "0xf0000",
-            [
-                "undervoltage has occurred",
-                "ARM frequency has been capped",
-                "throttling has occurred",
-                "soft temperature limit has occurred",
-            ],
-        ),
+        ("0x1", ["low voltage"]),
+        ("0x8", ["temp limit"]),
+        ("0x40000", ["* throttled"]),
+        ("0x50000", ["* low voltage", "* throttled"]),
+        ("0xf0000", ["* low voltage", "* cpu capped", "* throttled", "* temp limit"]),
     ],
 )
 def test_throttle_bits_are_decoded(value, expected):
     """A bit-mask decode with an off-by-one is exactly the kind of thing that
     only shows up on a machine that is already struggling."""
     assert system.throttled_reasons(value) == expected
+
+
+def test_the_most_severe_reason_comes_first():
+    """The thermal page shows reasons[0], so the declaration order matters."""
+    reasons = system.throttled_reasons("0xf0003")
+    assert reasons[0] == "low voltage"
+    assert reasons[-1] == "* temp limit"
 
 
 def test_bytes2human_scales_in_binary_steps():

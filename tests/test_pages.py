@@ -61,7 +61,9 @@ def full_sample(**overrides) -> Sample:
         "disk_total": 1_800_000_000_000,
         "temperature_c": 40.4,
         "clock_mhz": 1500,
-        "throttled": [],
+        # A real throttle flag, because an empty one hid the overlap bug: the long
+        # phrase used to be drawn through the row label.
+        "throttled": ["* low voltage"],
         "iface": "eth0",
         "ip": "10.73.77.24",
         "tx_bytes": 1_200_000_000,
