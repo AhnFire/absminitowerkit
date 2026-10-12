@@ -82,3 +82,22 @@ def test_the_shipped_example_config_is_valid():
     cfg = config.load(example)
     assert cfg.leds.pixel_count >= 1
     assert cfg.panel.pages
+
+
+def test_the_default_page_list_matches_the_registry():
+    """PANEL_PAGES is declared in config.py and the registry lives in pages.py.
+
+    Without this the mismatch would only show up as a KeyError on the Pi, at the
+    moment the panel switched to the offending page.
+    """
+    from minitower import pages
+
+    assert config.PanelConfig().pages == config.PANEL_PAGES
+    assert all(name in pages.PAGES for name in config.PANEL_PAGES)
+
+
+def test_the_example_config_only_names_real_pages():
+    from minitower import pages
+
+    cfg = config.load(REPO_ROOT / "config.toml.example")
+    assert all(name in pages.PAGES for name in cfg.panel.pages)
