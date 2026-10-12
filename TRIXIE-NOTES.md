@@ -13,6 +13,7 @@ Everything below was verified on a real Pi 4 Model B (8 GB) with a
 ```bash
 git clone https://github.com/AhnFire/absminitowerkit.git
 cd absminitowerkit
+chmod +x install_trixie.sh uninstall_trixie.sh   # git stores them mode 644
 sudo ./install_trixie.sh --dry-run     # see exactly what it will do
 sudo ./install_trixie.sh               # then do it
 sudo reboot
