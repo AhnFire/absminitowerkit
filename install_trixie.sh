@@ -16,7 +16,7 @@
 #   4. No pip-editable install into /tmp. The original did
 #      `pip3 install -e /tmp/luma.examples`, and systemd-tmpfiles-clean.timer
 #      deletes /tmp daily, leaving a dangling package. We use apt
-#      python3-luma.oled / python3-psutil and a persistent luma.examples clone.
+#      python3-luma.oled / python3-psutil, plus the minitower package below.
 #   5. Correct systemd units. The originals use Type=simple together with
 #      RemainAfterExit=yes and Restart=always; RemainAfterExit only applies to
 #      Type=oneshot and disables Restart, so failures/deaths are not supervised.
@@ -29,18 +29,23 @@
 #      there is no /dev/i2c-1 at all on Trixie Lite, and without the font PIL
 #      raises "OSError: cannot open resource" - both leave the OLED blank
 #      (upstream issue #16). Both were found by running this on real hardware.
+#   9. Installs the minitower package, which is what actually drives the LEDs
+#      and the panel now. The vendor's moodlight binary was upstream's 8x8
+#      matrix demo (64 pixels at 15 fps) and its single-view sysinfo.py never
+#      rotated pages; both are replaced, and --leds moodlight/custom keep the
+#      old behaviour available.
 #
 #  Usage:  sudo ./install_trixie.sh [options]
 # ============================================================================
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VER="1.2.0-trixie"
+VER="1.3.0-trixie"
 
 # ---------------------------------------------------------------- defaults ---
 TARGET_USER="${SUDO_USER:-}"
 FAN_GPIO="14"                 # ZP-0130 V2 4-wire fan PWM = GPIO14 (pin 8)
-LED_MODE="moodlight"          # moodlight | custom | none
+LED_MODE="driver"             # driver | moodlight | custom | none
 MOODLIGHT_BIN="/usr/bin/moodlight"
 PREFIX="/usr/local/minitower"
 DO_REBOOT=0
@@ -57,10 +62,10 @@ usage() {
 GeeekPi ABS Mini Tower Kit installer v$VER
 
   --user NAME        target desktop user (default: \$SUDO_USER)
-  --leds MODE        moodlight (vendor binary, default) | custom | none
+  --leds MODE        driver (minitower package, default) | moodlight | custom | none
   --fan-gpio N       fan PWM GPIO (default 14, the V2 4-wire fan)
   --no-fan           do not configure fan control
-  --prefix DIR       install prefix for the OLED scripts (default $PREFIX)
+  --prefix DIR       install prefix for the legacy custom LED scripts (default $PREFIX)
   --reboot           reboot when finished (default: do not)
   --dry-run          print what would change, change nothing
   -h, --help         this text
@@ -81,7 +86,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-case "$LED_MODE" in moodlight|custom|none) ;; *) die "--leds must be moodlight, custom or none" ;; esac
+case "$LED_MODE" in driver|moodlight|custom|none) ;; *) die "--leds must be driver, moodlight, custom or none" ;; esac
 
 # -------------------------------------------------------------- preflight ----
 [ "$(id -u)" -eq 0 ] || die "please run with sudo (needs apt, config.txt and systemd write access)"
@@ -137,9 +142,11 @@ run apt-get update -q
 # Package names verified against the Debian 13 (trixie) arm64 package index.
 # libfreetype6-dev no longer exists in trixie (it is libfreetype-dev there),
 # which is what made the original apt line fail on Pi OS 6 (issue #18).
-# fonts-dejavu-core is NOT in Raspberry Pi OS Lite, but democ_code/sysinfo.py
-# asks PIL for /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf. Without it
-# PIL raises "OSError: cannot open resource" and the OLED service crash-loops.
+# fonts-dejavu-core is NOT in Raspberry Pi OS Lite, but the panel program asks
+# PIL for /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf. Without it PIL
+# raises "OSError: cannot open resource" and the OLED service crash-loops.
+# (The package now also falls back to Pillow's built-in font, so a missing font
+# is a smaller font rather than a dead service.)
 CORE_PKGS="git cmake scons python3-dev python3-pip python3-pil python3-psutil libjpeg-dev zlib1g-dev libfreetype-dev liblcms2-dev libopenjp2-7 libtiff-dev i2c-tools python3-smbus python3-luma.oled fonts-dejavu-core"
 # shellcheck disable=SC2086
 apt_i $CORE_PKGS || {
@@ -151,29 +158,31 @@ for g in gpio i2c spi video; do
 done
 ok "granted $TARGET_USER access to the gpio/i2c/spi/video groups (where present)"
 
-# ============================================================= 2. OLED -------
-# The original ran `pip3 install -e /tmp/luma.examples`: an editable install
-# inside /tmp, which systemd-tmpfiles-clean.timer deletes daily, leaving a
-# dangling package (visible as "luma.examples 0.0.0 /tmp/luma.examples").
-# luma.oled itself now comes from apt, so only the demo scripts are needed.
-log "Installing luma.examples into $HOME_DIR/luma.examples (persistent path)"
-if [ "$DRY_RUN" = 1 ]; then
-  printf '  [dry-run] git clone --depth 1 https://github.com/rm-hull/luma.examples.git %s/luma.examples\n' "$HOME_DIR"
-elif [ -d "$HOME_DIR/luma.examples/.git" ]; then
-  git -C "$HOME_DIR/luma.examples" pull --ff-only 2>/dev/null || warn "luma.examples: update failed, keeping existing copy"
-else
-  git clone --depth 1 https://github.com/rm-hull/luma.examples.git "$HOME_DIR/luma.examples" \
-    || warn "could not clone luma.examples - the extra OLED demos will be missing"
-  chown -R "$TARGET_USER:$TARGET_USER" "$HOME_DIR/luma.examples" 2>/dev/null || true
+# ========================================================== 2. package -------
+# The vendor's panel was a 120-line script copied out of luma.examples by
+# heredoc, driven by a shell loop that spawned and killed a python process every
+# 10 seconds - which is what left an orphaned renderer behind when the service
+# stopped. The minitower package replaces both halves with two supervised
+# programs and a single configuration file.
+log "Installing the minitower package (LED driver + panel driver)"
+run install -d -m 755 /etc/minitower
+if [ "$DRY_RUN" = 0 ] && [ ! -f /etc/minitower/config.toml ]; then
+  install -m 644 "$SCRIPT_DIR/config.toml.example" /etc/minitower/config.toml
+  ok "wrote /etc/minitower/config.toml (defaults match the ZP-0130; edit to taste)"
 fi
-
-log "Installing OLED scripts into $PREFIX"
-run install -d -m 755 "$PREFIX"
-run install -m 644 "$SCRIPT_DIR/democ_code/demo_opts.py" "$PREFIX/demo_opts.py"
-run install -m 644 "$SCRIPT_DIR/democ_code/sysinfo.py"   "$PREFIX/sysinfo.py"
+# The runtime libraries come from apt (python3-luma.oled, python3-psutil,
+# python3-pil), so pip is told not to duplicate them into /usr/local.
+run python3 -m pip install --break-system-packages --no-deps "$SCRIPT_DIR"
 
 # ============================================================= 3. LEDs -------
 case "$LED_MODE" in
+  driver)
+    # rpi-ws281x is not packaged for Debian, so the Python binding comes from
+    # pip. It compiles the C library against the kernel headers (python3-dev is
+    # already in CORE_PKGS) and has no other dependencies.
+    log "Installing the WS281X Python binding (rpi-ws281x)"
+    run python3 -m pip install --break-system-packages rpi-ws281x
+    ;;
   moodlight)
     log "Building the vendor moodlight binary (jgarff/rpi_ws281x)"
     if [ "$DRY_RUN" = 1 ]; then
@@ -270,8 +279,16 @@ UNIT_DIR=/etc/systemd/system
 log "Installing systemd units into $UNIT_DIR"
 run install -m 644 "$SCRIPT_DIR/systemd_files/minitower_oled.service" "$UNIT_DIR/minitower_oled.service"
 case "$LED_MODE" in
-  moodlight)
+  driver)
+    # The shipped unit runs minitower-leds from the package installed above.
     run install -m 644 "$SCRIPT_DIR/systemd_files/minitower_moodlight.service" "$UNIT_DIR/minitower_moodlight.service"
+    ;;
+  moodlight)
+    # Legacy: the vendor's compiled demo binary. Reuse the shipped unit file so
+    # it keeps the hardening comments, but point it at the old binary.
+    run install -m 644 "$SCRIPT_DIR/systemd_files/minitower_moodlight.service" "$UNIT_DIR/minitower_moodlight.service"
+    [ "$DRY_RUN" = 0 ] && sed -i "s|^ExecStart=.*|ExecStart=$MOODLIGHT_BIN|" "$UNIT_DIR/minitower_moodlight.service" || true
+    warn "--leds moodlight is the legacy vendor demo (an 8x8 matrix animation at 15 fps); --leds driver is the supported path"
     ;;
   custom)
     if [ "$DRY_RUN" = 1 ]; then
@@ -302,15 +319,15 @@ esac
 
 run systemctl daemon-reload
 case "$LED_MODE" in
-  moodlight|custom) run systemctl enable minitower_moodlight.service ;;
-  none)             run systemctl disable minitower_moodlight.service 2>/dev/null || true ;;
+  driver|moodlight|custom) run systemctl enable minitower_moodlight.service ;;
+  none)                    run systemctl disable minitower_moodlight.service 2>/dev/null || true ;;
 esac
 run systemctl enable minitower_oled.service
 
 if [ "$DRY_RUN" = 0 ]; then
   case "$LED_MODE" in
-    moodlight|custom) systemctl restart minitower_moodlight.service \
-      || warn "moodlight did not start (journalctl -u minitower_moodlight -e)" ;;
+    driver|moodlight|custom) systemctl restart minitower_moodlight.service \
+      || warn "the LED service did not start (journalctl -u minitower_moodlight -e)" ;;
   esac
   systemctl restart minitower_oled.service \
     || warn "OLED service did not start (journalctl -u minitower_oled -e)"
@@ -335,7 +352,7 @@ fi
 
 printf '\n'
 ok "Install finished."
-echo "    OLED script : $PREFIX/sysinfo.py"
+echo "    panel/LEDs  : minitower-panel + minitower-leds (config /etc/minitower/config.toml)"
 echo "    LED mode    : $LED_MODE"
 echo "    fan         : $([ "$FAN_GPIO" = none ] && echo disabled || echo "pwm-gpio-fan on GPIO$FAN_GPIO")"
 echo "    config.txt  : $CONFIG (original kept as $CONFIG.premintower)"
