@@ -85,13 +85,15 @@ def test_the_shipped_example_config_is_valid():
 
 
 def test_the_default_page_list_matches_the_registry():
-    """PANEL_PAGES is declared in config.py and the registry lives in pages.py.
+    """config.PANEL_PAGES is the single definition of the rotation order.
 
-    Without this the mismatch would only show up as a KeyError on the Pi, at the
-    moment the panel switched to the offending page.
+    pages.DEFAULT_PAGES is an alias rather than a second copy, and every name
+    must exist: otherwise the mismatch would only show up as a KeyError on the
+    Pi, at the moment the panel switched to the offending page.
     """
     from minitower import pages
 
+    assert pages.DEFAULT_PAGES is config.PANEL_PAGES
     assert config.PanelConfig().pages == config.PANEL_PAGES
     assert all(name in pages.PAGES for name in config.PANEL_PAGES)
 

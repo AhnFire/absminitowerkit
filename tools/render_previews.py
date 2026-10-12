@@ -22,12 +22,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from PIL import Image  # noqa: E402
+from PIL import Image
 
-from minitower import pages  # noqa: E402
-from minitower.config import PanelConfig  # noqa: E402
-from minitower.panel import Panel  # noqa: E402
-from minitower.sampler import Sample, Sampler  # noqa: E402
+from minitower import pages
+from minitower.config import PanelConfig
+from minitower.panel import Panel
+from minitower.sampler import Sample, Sampler
 
 
 class MemoryDevice:
@@ -59,8 +59,8 @@ def demo_sample() -> Sample:
         load=(0.52, 0.28, 0.22),
         cpu_percent=12.4,
         memory_percent=43.0,
-        memory_used=521 * 1024 ** 2,
-        memory_total=7800 * 1024 ** 2,
+        memory_used=521 * 1024**2,
+        memory_total=7800 * 1024**2,
         disk_percent=11.0,
         disk_used=4_100_000_000,
         disk_total=1_800_000_000_000,
@@ -78,8 +78,46 @@ def demo_sample() -> Sample:
 
 
 DEMO_HISTORY = [
-    10, 8, 22, 45, 30, 12, 6, 18, 60, 88, 40, 25, 12, 9, 15, 33, 21, 11, 8, 30,
-    52, 14, 10, 7, 19, 26, 12, 9, 11, 40, 65, 20, 13, 10, 16, 24, 12, 8, 14, 31,
+    10,
+    8,
+    22,
+    45,
+    30,
+    12,
+    6,
+    18,
+    60,
+    88,
+    40,
+    25,
+    12,
+    9,
+    15,
+    33,
+    21,
+    11,
+    8,
+    30,
+    52,
+    14,
+    10,
+    7,
+    19,
+    26,
+    12,
+    9,
+    11,
+    40,
+    65,
+    20,
+    13,
+    10,
+    16,
+    24,
+    12,
+    8,
+    14,
+    31,
 ]
 
 
@@ -107,7 +145,9 @@ def main() -> int:
         panel.render(pages.PAGES[name], sample=sample, history=history)
         image = device.image.convert("L")
         path = args.out / f"{name}.png"
-        image.resize((image.width * args.scale, image.height * args.scale), Image.NEAREST).save(path)
+        image.resize((image.width * args.scale, image.height * args.scale), Image.NEAREST).save(
+            path
+        )
         print(f"{name:8s} bbox={image.getbbox()}  -> {path}")
 
     print(f"\n{len(names)} page(s) written to {args.out}")
