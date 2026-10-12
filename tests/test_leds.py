@@ -6,6 +6,7 @@ main reason minitower.leds is shaped the way it is.
 """
 
 import colorsys
+import itertools
 
 import pytest
 
@@ -25,17 +26,14 @@ def test_gamma_table_is_monotonic_and_bounded():
     assert len(table) == 256
     assert table[0] == 0
     assert table[255] == 255
-    assert all(later >= earlier for earlier, later in zip(table, table[1:]))
+    assert all(later >= earlier for earlier, later in itertools.pairwise(table))
 
 
 def test_gradient_spreads_a_full_wheel_around_the_ring():
     ring, _ = make_ring(pixel_count=6, hue_spread_deg=60.0, gamma=1.0)
     frame = ring.gradient_frame(0.0)
     assert len(frame) == 6
-    hues = [
-        colorsys.rgb_to_hsv(*(channel / 255 for channel in rgb))[0] * 360.0
-        for rgb in frame
-    ]
+    hues = [colorsys.rgb_to_hsv(*(channel / 255 for channel in rgb))[0] * 360.0 for rgb in frame]
     assert hues[0] == pytest.approx(0.0, abs=1.0)
     assert hues[-1] == pytest.approx(300.0, abs=1.0)
 
@@ -49,8 +47,8 @@ def test_animation_is_smooth_not_a_disco():
     ring, _ = make_ring(gamma=1.0, hue_speed_deg_per_s=6.0, frame_hz=30.0)
     before_frame = ring.frame_for(0.0)
     after_frame = ring.frame_for(1.0 / 30.0)
-    for before, after in zip(before_frame, after_frame):
-        delta = max(abs(a - b) for a, b in zip(before, after))
+    for before, after in zip(before_frame, after_frame, strict=False):
+        delta = max(abs(a - b) for a, b in zip(before, after, strict=False))
         assert delta <= 8, f"one frame moved {delta}/255 - too abrupt to be a gradient"
 
 
