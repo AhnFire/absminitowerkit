@@ -27,10 +27,10 @@ Options: `--user NAME` (defaults to `$SUDO_USER`), `--leds moodlight|custom|none
 |---|---|---|
 | 1 | **It rewrote `/etc/resolv.conf`**: commented out every existing `nameserver` and appended `114.114.114.114` + `8.8.8.8`, hijacking DNS away from your router | never touches `resolv.conf` |
 | 2 | **Hardcoded the `pi` user** (`usermod -a -G gpio,i2c pi`), so a custom username silently got no hardware access | uses `$SUDO_USER` or `--user` |
-| 3 | **`libfreetype6-dev` no longer exists in Trixie** (it is `libfreetype-dev`), so its apt line fails there - this is [issue #18](https://github.com/geeekpi/absminitowerkit/issues/18) | correct names for trixie **and** bookworm, and installs packages one-by-one so one bad name cannot abort the whole run |
-| 4 | **`pip3 install -e /tmp/luma.examples`** - an editable install inside `/tmp`, which `systemd-tmpfiles-clean.timer` deletes daily, leaving a dangling package (it shows up as `luma.examples 0.0.0 /tmp/luma.examples` in `pip3 list`) | `python3-luma.oled` from apt; `luma.examples` cloned to a persistent path |
-| 5 | **Broken systemd unit semantics**: `sudo` inside `ExecStart`, `RemainAfterExit=yes` with `Type=simple` (unit reports `active (exited)` while nothing runs), `DefaultDependencies=no` (starts before `multi-user.target`/`/home`), and default 100 ms restart delay causing "Start request repeated too quickly" - see [issue #15](https://github.com/geeekpi/absminitowerkit/issues/15), where the reporter also mentions **"im using a custom username instead of pi"** | cleaned units in `systemd_files/`, mode 644 |
-| 6 | **No fan control at all**, even though the V2 kit's headline feature is an adjustable 4-wire fan; the userspace PWM examples circulating for this kit burn >10% CPU - [issue #17](https://github.com/geeekpi/absminitowerkit/issues/17) | kernel `pwm-gpio-fan` overlay on GPIO14, ~0 CPU, survives reboots |
+| 3 | **`libfreetype6-dev` no longer exists in Trixie** (it is `libfreetype-dev`), so its apt line fails there — this is [issue #18](https://github.com/geeekpi/absminitowerkit/issues/18) | correct names for trixie **and** bookworm, and installs packages one-by-one so one bad name cannot abort the whole run |
+| 4 | **`pip3 install -e /tmp/luma.examples`** — an editable install inside `/tmp`, which `systemd-tmpfiles-clean.timer` deletes daily, leaving a dangling package (it shows up as `luma.examples 0.0.0 /tmp/luma.examples` in `pip3 list`) | `python3-luma.oled` from apt; `luma.examples` cloned to a persistent path |
+| 5 | **Broken systemd unit semantics**: `sudo` inside `ExecStart`, `RemainAfterExit=yes` with `Type=simple` (unit reports `active (exited)` while nothing runs), `DefaultDependencies=no` (starts before `multi-user.target`/`/home`), and default 100 ms restart delay causing "Start request repeated too quickly" — see [issue #15](https://github.com/geeekpi/absminitowerkit/issues/15), where the reporter also mentions **"im using a custom username instead of pi"** | cleaned units in `systemd_files/`, mode 644 |
+| 6 | **No fan control at all**, even though the V2 kit's headline feature is an adjustable 4-wire fan; the userspace PWM examples circulating for this kit burn >10% CPU — [issue #17](https://github.com/geeekpi/absminitowerkit/issues/17) | kernel `pwm-gpio-fan` overlay on GPIO14, ~0 CPU, survives reboots |
 | 7 | Always reboots the machine at the end, and config.txt edits are not idempotent | `--reboot` to opt in, idempotent edits, original saved to `config.txt.premintower` |
 
 ## The fan, properly
@@ -44,7 +44,7 @@ is the kernel overlay documented in your own
 dtoverlay=pwm-gpio-fan,fan_gpio=14,fan_temp0=50000,fan_temp1=55000,fan_temp2=60000,fan_temp3=65000,fan_temp0_speed=90,fan_temp1_speed=140,fan_temp2_speed=200,fan_temp3_speed=255
 ```
 
-> **`fan_gpio` must be passed explicitly.** The overlay defaults to **18** -
+> **`fan_gpio` must be passed explicitly.** The overlay defaults to **18** —
 > the WS281X LED pin. If you load `dtoverlay=pwm-gpio-fan` bare, fan control
 > and the RGB light fight over one pin.
 
