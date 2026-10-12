@@ -90,3 +90,21 @@ def test_rate_human_reports_bits_not_bytes():
     assert rate_human(0) == "0"
     assert rate_human(125_000) == "1.0M"
     assert rate_human(125_000_000) == "1.0G"
+
+
+def test_histogram_ignores_bars_with_no_height():
+    draw, image = canvas()
+    widgets.histogram(draw, (3, 17, 124, 48), [0.0] * 8)
+    assert image.getbbox() == (3, 17, 125, 49), "only the box outline should be drawn"
+
+
+def test_histogram_stops_when_it_runs_out_of_room():
+    """More samples than pixels: the loop must stop at the box edge, not run off it."""
+    draw, image = canvas()
+    widgets.histogram(draw, (3, 17, 10, 20), [100.0] * 1000)
+    assert image.getbbox()[2] <= 11
+
+
+def test_fit_font_falls_back_instead_of_raising():
+    draw, _ = canvas()
+    assert widgets.fit_font(draw, "12:34", "/nonexistent/NoSuchFont.ttf", 100, 30) is not None
