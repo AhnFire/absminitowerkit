@@ -26,6 +26,11 @@ DEFAULT_STRIP_ORDER = "WS2812_STRIP"
 
 LED_MODES = ("gradient", "solid", "off")
 PANEL_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+#: Bold face for page titles. The reference system demos have no visual
+#: hierarchy at all; a bold title row is the cheapest way to add some.
+PANEL_FONT_BOLD_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
+#: What a fresh install rotates through - must match minitower.pages.PAGES.
+PANEL_PAGES = ("sysinfo", "graph", "net", "temp", "top", "clock")
 
 
 class ConfigError(ValueError):
@@ -84,7 +89,9 @@ class PanelConfig:
     """Settings for the SSD1306 OLED status display.
 
     i2c_port / i2c_address  the panel is on i2c-1 at 0x3C on the ZP-0130.
-    font_size / font_path   falls back to Pillow's default font when absent,
+    font_size               row size in points. 10 is the largest that fits a
+                            title, four readout rows and a frame in 64 px.
+    font_path / font_bold_path  fall back to Pillow's built-in font when absent,
                             which is what left the display blank on Pi OS Lite.
     refresh_seconds         how often the current page is redrawn.
     page_seconds            how long each page is shown before rotating.
@@ -93,11 +100,12 @@ class PanelConfig:
 
     i2c_port: int = 1
     i2c_address: int = 0x3C
-    font_size: int = 11
+    font_size: int = 10
     font_path: str = PANEL_FONT_PATH
+    font_bold_path: str = PANEL_FONT_BOLD_PATH
     refresh_seconds: float = 2.0
-    page_seconds: float = 12.0
-    pages: tuple[str, ...] = ("load", "mem", "disk", "net", "temp")
+    page_seconds: float = 10.0
+    pages: tuple[str, ...] = PANEL_PAGES
 
     def validated(self) -> "PanelConfig":
         if not 0 <= self.i2c_port <= 99:

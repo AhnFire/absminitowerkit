@@ -116,7 +116,9 @@ def bytes2human(count: float) -> str:
 def load_average() -> tuple[float, float, float]:
     try:
         return os.getloadavg()
-    except OSError:
+    except (AttributeError, OSError):
+        # AttributeError: os.getloadavg does not exist on every platform, which
+        # is worth catching because this is used off-Pi by the tests.
         return (0.0, 0.0, 0.0)
 
 
