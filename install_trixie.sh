@@ -25,13 +25,17 @@
 #      upstream issue #17).
 #   7. Idempotent config.txt edits, --dry-run, and no forced reboot
 #      (the original always rebooted the machine at the end).
+#   8. Loads the i2c-dev module and installs fonts-dejavu-core. Without i2c-dev
+#      there is no /dev/i2c-1 at all on Trixie Lite, and without the font PIL
+#      raises "OSError: cannot open resource" - both leave the OLED blank
+#      (upstream issue #16). Both were found by running this on real hardware.
 #
 #  Usage:  sudo ./install_trixie.sh [options]
 # ============================================================================
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VER="1.1.0-trixie"
+VER="1.2.0-trixie"
 
 # ---------------------------------------------------------------- defaults ---
 TARGET_USER="${SUDO_USER:-}"
@@ -80,7 +84,7 @@ done
 case "$LED_MODE" in moodlight|custom|none) ;; *) die "--leds must be moodlight, custom or none" ;; esac
 
 # -------------------------------------------------------------- preflight ----
-[ "$(id -u)" -eq 0 ] || die "please run with sudo (needs apt, $CONFIG and systemd write access)"
+[ "$(id -u)" -eq 0 ] || die "please run with sudo (needs apt, config.txt and systemd write access)"
 [ -d "$SCRIPT_DIR/democ_code" ] || die "run this from inside the repository (democ_code/ not found next to the script)"
 
 if [ -z "$TARGET_USER" ]; then
@@ -133,7 +137,10 @@ run apt-get update -q
 # Package names verified against the Debian 13 (trixie) arm64 package index.
 # libfreetype6-dev no longer exists in trixie (it is libfreetype-dev there),
 # which is what made the original apt line fail on Pi OS 6 (issue #18).
-CORE_PKGS="git cmake scons python3-dev python3-pip python3-pil python3-psutil libjpeg-dev zlib1g-dev libfreetype-dev liblcms2-dev libopenjp2-7 libtiff-dev i2c-tools python3-smbus python3-luma.oled"
+# fonts-dejavu-core is NOT in Raspberry Pi OS Lite, but democ_code/sysinfo.py
+# asks PIL for /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf. Without it
+# PIL raises "OSError: cannot open resource" and the OLED service crash-loops.
+CORE_PKGS="git cmake scons python3-dev python3-pip python3-pil python3-psutil libjpeg-dev zlib1g-dev libfreetype-dev liblcms2-dev libopenjp2-7 libtiff-dev i2c-tools python3-smbus python3-luma.oled fonts-dejavu-core"
 # shellcheck disable=SC2086
 apt_i $CORE_PKGS || {
   warn "bulk install failed; retrying one by one so one bad name cannot block the rest"
@@ -243,6 +250,21 @@ cfg_drop '^dtparam=i2c_arm(=.*)?$'
 cfg_drop '^dtparam=i2c=(on|off|0|1)$'
 cfg_add 'dtparam=i2c_arm=on'
 
+# dtparam=i2c_arm=on only brings up the bus CONTROLLER (i2c_bcm2835). The
+# /dev/i2c-N character device that luma.oled - and every userspace I2C tool -
+# opens comes from the i2c-dev module, which Raspberry Pi OS Trixie LITE does
+# not load by default, and which the original installer never added either.
+# Without it the OLED can never initialise, which is almost certainly the real
+# cause of upstream issue #16 ("RGB turned on, but OLED does not display
+# anything").
+if [ "$DRY_RUN" = 1 ]; then
+  printf '  [dry-run] would write /etc/modules-load.d/i2c-dev.conf and modprobe i2c-dev\n'
+else
+  printf 'i2c-dev\n' > /etc/modules-load.d/i2c-dev.conf
+  modprobe i2c-dev 2>/dev/null || true
+  ok "i2c-dev will load at boot via /etc/modules-load.d/i2c-dev.conf"
+fi
+
 # =========================================================== 6. services ----
 UNIT_DIR=/etc/systemd/system
 log "Installing systemd units into $UNIT_DIR"
@@ -300,7 +322,7 @@ if [ "$DRY_RUN" = 0 ]; then
   if i2cdetect -y 1 2>/dev/null | grep -q ' 3c '; then
     ok "OLED detected at 0x3C on i2c-1"
   else
-    warn "nothing at 0x3C - check the foolproof OLED connector orientation"
+    warn "nothing at 0x3C - if /dev/i2c-1 is missing, i2c-dev did not load yet; a reboot will fix it"
   fi
   if ls /sys/class/thermal/cooling_device*/type >/dev/null 2>&1; then
     ok "fan cooling device registered"
