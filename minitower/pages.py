@@ -9,7 +9,8 @@ portion showing the proportion.
 
 The previous version of this file drew three or four short lines of plain text at
 top-left with no frame at all, which is why it looked unfinished next to the demos
-it replaced. Rendered previews of all six pages are attached to the PR.
+it replaced. Run `tools/render_previews.py` to render all six pages to PNGs
+without a Pi, which is how this layout was arrived at.
 
 Pages receive a `Ctx` (canvas, fonts, geometry, the current `Sample` and the CPU
 history) instead of reaching for global state, which is why they can be rendered
