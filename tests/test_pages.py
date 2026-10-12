@@ -47,29 +47,29 @@ class RecordingDevice:
 
 def full_sample(**overrides) -> Sample:
     """A sample with every field populated, so each page has something to draw."""
-    values = dict(
-        taken_at=1.0,
-        hostname="pitower",
-        uptime="1d 5h 3m",
-        load=(0.52, 0.28, 0.22),
-        cpu_percent=12.4,
-        memory_percent=43.0,
-        memory_used=521 * 1024 ** 2,
-        memory_total=7800 * 1024 ** 2,
-        disk_percent=11.0,
-        disk_used=4_100_000_000,
-        disk_total=1_800_000_000_000,
-        temperature_c=40.4,
-        clock_mhz=1500,
-        throttled=[],
-        iface="eth0",
-        ip="10.73.77.24",
-        tx_bytes=1_200_000_000,
-        rx_bytes=3_400_000_000,
-        tx_rate=310_000.0,
-        rx_rate=1_050_000.0,
-        top=[("python3", 12.4), ("dockerd", 3.1), ("systemd", 0.9)],
-    )
+    values = {
+        "taken_at": 1.0,
+        "hostname": "pitower",
+        "uptime": "1d 5h 3m",
+        "load": (0.52, 0.28, 0.22),
+        "cpu_percent": 12.4,
+        "memory_percent": 43.0,
+        "memory_used": 521 * 1024**2,
+        "memory_total": 7800 * 1024**2,
+        "disk_percent": 11.0,
+        "disk_used": 4_100_000_000,
+        "disk_total": 1_800_000_000_000,
+        "temperature_c": 40.4,
+        "clock_mhz": 1500,
+        "throttled": [],
+        "iface": "eth0",
+        "ip": "10.73.77.24",
+        "tx_bytes": 1_200_000_000,
+        "rx_bytes": 3_400_000_000,
+        "tx_rate": 310_000.0,
+        "rx_rate": 1_050_000.0,
+        "top": [("python3", 12.4), ("dockerd", 3.1), ("systemd", 0.9)],
+    }
     values.update(overrides)
     return Sample(**values)
 
