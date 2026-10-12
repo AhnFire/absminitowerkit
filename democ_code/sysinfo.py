@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import socket
 import sys
 import time
 from pathlib import Path
@@ -25,6 +26,36 @@ def bytes2human(n):
     return "%sB" % n
 
 
+def default_iface():
+    # The Mini Tower is frequently used headless over Ethernet, so do not assume
+    # wlan0. The original code called network('wlan0') inside a try/except
+    # KeyError, so on a wired Pi the exception skipped the IP line as well.
+    # Prefer the interface that carries the IPv4 default route.
+    try:
+        route = sp.getoutput("ip -4 route show default").split()
+        if "dev" in route:
+            return route[route.index("dev") + 1]
+    except Exception:
+        pass
+    # Fallback: first physical-looking interface with a global IPv4 address.
+    # Skip loopback, docker/virtual bridges and tunnels so a container network
+    # cannot be picked instead of the real uplink.
+    skip = ("lo", "docker", "br-", "veth", "virbr", "tun", "tap", "wg", "zt")
+    try:
+        for name, addrs in psutil.net_if_addrs().items():
+            if name.startswith(skip):
+                continue
+            for a in addrs:
+                if a.family == socket.AF_INET and not a.address.startswith("127."):
+                    return name
+    except Exception:
+        pass
+    return None
+
+
+NET_IFACE = default_iface()
+
+
 def cpu_usage():
     # load average
     av1, av2, av3 = os.getloadavg()
@@ -36,7 +67,7 @@ def uptime_usage():
     # uptime = datetime.now() - datetime.fromtimestamp(psutil.boot_time())
     ip = sp.getoutput("hostname -I").split(' ')[0]
     return "IP:%s" % (ip)
-    
+
 
 def mem_usage():
     usage = psutil.virtual_memory()
@@ -49,7 +80,11 @@ def disk_usage(dir):
 
 
 def network(iface):
-    stat = psutil.net_io_counters(pernic=True)[iface]
+    if not iface:
+        return "net: unavailable"
+    stat = psutil.net_io_counters(pernic=True).get(iface)
+    if stat is None:
+        return "%s: unavailable" % iface
     return "%s: Tx: %s,Rx: %s" % (iface, bytes2human(stat.bytes_sent), bytes2human(stat.bytes_recv))
 
 
@@ -65,13 +100,8 @@ def stats(device):
 
         if device.height >= 64:
             draw.text((0, 24), disk_usage('/'), font=font2, fill="white")
-            try:
-                draw.text((0, 36), network('wlan0'), font=font2, fill="white")
-                draw.text((0, 48), uptime_usage(), font=font2, fill="white")
-
-            except KeyError:
-                # no wifi enabled/available
-                pass
+            draw.text((0, 36), network(NET_IFACE), font=font2, fill="white")
+            draw.text((0, 48), uptime_usage(), font=font2, fill="white")
 
 
 device = get_device()
@@ -79,4 +109,3 @@ device = get_device()
 while True:
     stats(device)
     time.sleep(5)
-

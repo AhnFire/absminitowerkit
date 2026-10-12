@@ -60,6 +60,24 @@ cat /sys/class/thermal/cooling_device*/cur_state   # 0-4, follows the curve
 See `config.txt.example` for tuning notes and related overlays
 (`gpio-fan` for simple on/off, `i2c-fan` for I2C controller chips).
 
+## Two extra fixes in this fork
+
+The first is credited to `tannerln7`'s independent upstream PR #19, which
+arrived at the same fix; the second is a bug found on this hardware.
+
+* **OLED startup race.** `/dev/i2c-1` can appear after systemd has begun starting
+  services, which leaves the display blank after a reboot.
+  `minitower_oled.service` now waits up to 30 s for the device in
+  `ExecStartPre`. Note that `ConditionPathExists=` is the wrong tool here:
+  systemd evaluates a condition exactly once, so a late device means the unit is
+  skipped for the entire boot.
+* **The status display now works on Ethernet.** Upstream `democ_code/sysinfo.py`
+  calls `network('wlan0')` inside a `try/except KeyError`, so on a wired Pi the
+  exception silently skipped the network line *and* the `IP:` line. It now picks
+  the interface carrying the IPv4 default route - validated on a Pi 4, where it
+  resolves to `eth0` - with a fallback that ignores docker/veth/bridge/tun
+  interfaces.
+
 ## What is preserved
 
 Unchanged from upstream so existing installs keep working:
