@@ -108,3 +108,60 @@ def test_histogram_stops_when_it_runs_out_of_room():
 def test_fit_font_falls_back_instead_of_raising():
     draw, _ = canvas()
     assert widgets.fit_font(draw, "12:34", "/nonexistent/NoSuchFont.ttf", 100, 30) is not None
+
+
+def _drawn_between(image, label_end: int, band=range(40, 52)) -> set[int]:
+    """Which of the gap columns right after a label have anything drawn in them."""
+    return {
+        x
+        for x in range(label_end, label_end + widgets.COLUMN_GAP)
+        if any(image.getpixel((x, y)) for y in band)
+    }
+
+
+def test_clip_text_trims_to_fit():
+    draw, _ = canvas()
+    original = "undervoltage has occurred"
+
+    clipped = widgets.clip_text(draw, original, FONT, 40)
+
+    assert clipped, "something should survive the clip"
+    assert original.startswith(clipped), "clipping must only remove from the end"
+    assert widgets.text_width(draw, clipped, FONT) <= 40
+
+
+def test_clip_text_leaves_short_text_alone():
+    draw, _ = canvas()
+    assert widgets.clip_text(draw, "ok", FONT, 40) == "ok"
+
+
+def test_text_row_never_draws_a_value_over_its_label():
+    """Reported from the Pi: "the word power and undervoltage are overlapping".
+
+    text_row right-aligns its value at the full width, so a long value used to be
+    drawn straight over the label.
+    """
+    draw, image = canvas()
+    widgets.text_row(draw, FONT, 40, "power", "undervoltage has occurred", WIDTH)
+
+    label_end = widgets.LABEL_X + widgets.text_width(draw, "power", FONT)
+
+    assert not _drawn_between(image, label_end), "the value is drawn against its label"
+
+
+def test_bar_row_never_draws_a_value_over_its_label():
+    draw, image = canvas()
+    widgets.bar_row(draw, FONT, 40, "Sent", "1.2G/3.4G", WIDTH, None)
+
+    label_end = widgets.LABEL_X + widgets.text_width(draw, "Sent", FONT)
+
+    assert not _drawn_between(image, label_end)
+
+
+def test_the_title_value_cannot_reach_the_title():
+    draw, image = canvas()
+    widgets.title(draw, FONT, 40, "NET wlan0", WIDTH, right="10.73.77.24")
+
+    label_end = widgets.LABEL_X + widgets.text_width(draw, "NET wlan0", FONT)
+
+    assert not _drawn_between(image, label_end)
