@@ -8,6 +8,7 @@ All of it is reachable by replacing the `time` module inside the sampler and the
 two psutil calls it uses, so these still need no hardware.
 """
 
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -128,3 +129,72 @@ def test_cpu_history_treats_a_missing_reading_as_zero(sampled):
     sampler, _ = sampled
     sampler.history.append(Sample(cpu_percent=None))
     assert sampler.cpu_history() == [0.0]
+
+
+def test_top_processes_are_ranked_and_limited(monkeypatch):
+    class Proc:
+        def __init__(self, name, cpu):
+            self.info = {"name": name, "cpu_percent": cpu}
+
+    import psutil
+
+    # Construct the Sampler first: priming deliberately zeroes every process's
+    # cpu_percent so the first real reading is meaningful rather than a one-off.
+    sampler = Sampler(want_top=True)
+    procs = [Proc("python3", 12.4), Proc("dockerd", 3.1), Proc("systemd", 0.9), Proc("idle", 0.0)]
+    monkeypatch.setattr(psutil, "process_iter", lambda fields=None: procs)
+
+    assert sampler._top_processes() == [("python3", 12.4), ("dockerd", 3.1), ("systemd", 0.9)]
+
+
+def test_a_process_that_dies_mid_scan_is_skipped(monkeypatch):
+    """psutil raises NoSuchProcess while *reading* a PID that has already exited,
+    which happens routinely on a busy box, so the scan must skip it."""
+
+    class Proc:
+        def __init__(self, name, cpu):
+            self.info = {"name": name, "cpu_percent": cpu}
+
+    class Vanished:
+        @property
+        def info(self):
+            import psutil
+
+            raise psutil.NoSuchProcess(1234)
+
+    import psutil
+
+    sampler = Sampler(want_top=True)
+    monkeypatch.setattr(psutil, "process_iter", lambda fields=None: [Proc("top", 5.0), Vanished()])
+
+    assert sampler._top_processes() == [("top", 5.0)]
+
+
+def test_top_processes_are_skipped_when_no_page_shows_them(monkeypatch):
+    """The per-process scan is the most expensive sample, so it is opt-in."""
+    calls = []
+
+    import psutil
+
+    monkeypatch.setattr(sampler_module, "time", FakeClock)
+    monkeypatch.setattr(sampler_module.system, "default_iface", lambda: None)
+    monkeypatch.setattr(psutil, "process_iter", lambda fields=None: calls.append(1) or [])
+    sampler = Sampler(want_top=False)
+
+    baseline = len(calls)  # priming may have used it once
+    sampler.sample_once()
+
+    assert len(calls) == baseline
+
+
+def test_a_missing_psutil_does_not_stop_a_sample(monkeypatch):
+    """Off a Pi, or in a minimal environment, a page must still render."""
+    monkeypatch.setattr(sampler_module, "time", FakeClock)
+    monkeypatch.setattr(sampler_module.system, "default_iface", lambda: None)
+    monkeypatch.setitem(sys.modules, "psutil", None)
+
+    sampler = Sampler(want_top=False)
+    sample = sampler.sample_once()
+
+    assert sample.hostname
+    assert sample.cpu_percent is None
