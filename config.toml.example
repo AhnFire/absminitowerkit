@@ -48,13 +48,23 @@ strip_order = "WS2812_STRIP"
 [panel]
 i2c_port = 1
 i2c_address = 0x3C
-font_size = 11
+
+# Row font size in points. 10 is the largest size that still fits a title, four
+# readout rows and the frame into 64 pixels; 12 collides with itself.
+font_size = 10
 
 # Seconds each page is shown before rotating.
-page_seconds = 12.0
+page_seconds = 10.0
 
-# Seconds between redraws of the current page.
+# Seconds between redraws of the current page. This is also the histogram's
+# sampling interval: 2.0 gives 80 seconds of history on the `graph` page.
 refresh_seconds = 2.0
 
-# Which pages to rotate through, in order. Available: load, mem, disk, net, temp.
-pages = ["load", "mem", "disk", "net", "temp"]
+# Which pages to rotate through, in order.
+#   sysinfo - temperature, CPU, memory and disk as labelled bars
+#   graph   - scrolling CPU history (40 samples), with peak and average
+#   net     - TX/RX throughput on a log scale, plus lifetime totals
+#   temp    - CPU temperature, load, uptime and the throttle flags
+#   top     - the three busiest processes
+#   clock   - big time and date
+pages = ["sysinfo", "graph", "net", "temp", "top", "clock"]

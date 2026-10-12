@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "minitower"
-version = "1.0.0"
+version = "1.1.0"
 description = "Accessory drivers for the GeeekPi / 52Pi Mini Tower NAS V2 (ZP-0130) case"
 readme = "TRIXIE-NOTES.md"
 requires-python = ">=3.11"
