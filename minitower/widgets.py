@@ -12,10 +12,8 @@ portion showing the proportion.
 
 from __future__ import annotations
 
-PAD = 3          # gap between the frame and the content
-ROW_H = 11       # vertical step between rows
-FIRST_ROW_Y = 4
-BAR_H = 7        # bar outer height (5px of fill inside it)
+PAD = 3  # gap between the frame and the content
+BAR_H = 7  # bar outer height (5px of fill inside it)
 LABEL_X = PAD + 1
 
 
@@ -61,13 +59,11 @@ def bar(draw, x0: int, x1: int, y: int, fraction: float, *, height: int = BAR_H)
     inner = x1 - x0 - 2
     if inner <= 0 or fraction <= 0:
         return
-    filled = max(1, int(round(inner * fraction)))
+    filled = max(1, round(inner * fraction))
     draw.rectangle((x0 + 1, y + 1, x0 + filled, y + height - 1), fill="white")
 
 
-def bar_row(
-    draw, font, y: int, label: str, value: str, width: int, fraction: float | None
-) -> None:
+def bar_row(draw, font, y: int, label: str, value: str, width: int, fraction: float | None) -> None:
     """`CPU        12%  [####      ]` - one complete readout row.
 
     A fraction of None draws the label and value only, for rows that have no
@@ -92,7 +88,9 @@ def centre(draw, font, y: int, text: str, width: int) -> None:
     draw.text(((width - text_width(draw, text, font)) // 2, y), text, font=font, fill="white")
 
 
-def histogram(draw, box: tuple[int, int, int, int], values: list[float], maximum: float = 100.0) -> None:
+def histogram(
+    draw, box: tuple[int, int, int, int], values: list[float], maximum: float = 100.0
+) -> None:
     """Vertical bars inside an outlined box; newest sample on the right."""
     x0, y0, x1, y1 = box
     draw.rectangle(box, outline="white")
@@ -104,7 +102,7 @@ def histogram(draw, box: tuple[int, int, int, int], values: list[float], maximum
     width = max(1, int(step) - 1) if step >= 2 else 1
     for index, raw in enumerate(values):
         level = min(1.0, max(0.0, raw / maximum))
-        height = int(round(inner_h * level))
+        height = round(inner_h * level)
         if height <= 0:
             continue
         left = x0 + 1 + int(index * step)

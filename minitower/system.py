@@ -89,21 +89,6 @@ def primary_ipv4() -> str | None:
         return None
 
 
-def net_counters(iface: str | None) -> tuple[int, int] | None:
-    """(bytes_sent, bytes_received) for an interface, or None."""
-    if not iface:
-        return None
-    try:
-        import psutil
-
-        counters = psutil.net_io_counters(pernic=True).get(iface)
-    except Exception:
-        return None
-    if counters is None:
-        return None
-    return counters.bytes_sent, counters.bytes_recv
-
-
 def bytes2human(count: float) -> str:
     """Compact byte count, e.g. 1536 -> '1K'."""
     for unit in ("K", "M", "G", "T", "P", "E", "Z", "Y"):
@@ -114,11 +99,18 @@ def bytes2human(count: float) -> str:
 
 
 def load_average() -> tuple[float, float, float]:
+    """Load averages, or zeros where the platform has no such notion.
+
+    getattr rather than a try/except around AttributeError: os.getloadavg only
+    exists on POSIX, and this keeps the module type-clean everywhere while the
+    tests run on Windows.
+    """
+    getloadavg = getattr(os, "getloadavg", None)
+    if getloadavg is None:
+        return (0.0, 0.0, 0.0)
     try:
-        return os.getloadavg()
-    except (AttributeError, OSError):
-        # AttributeError: os.getloadavg does not exist on every platform, which
-        # is worth catching because this is used off-Pi by the tests.
+        return getloadavg()
+    except OSError:
         return (0.0, 0.0, 0.0)
 
 
@@ -137,28 +129,6 @@ def uptime_human(seconds: float | None = None) -> str:
     if hours:
         return f"{hours}h {minutes % 60}m"
     return f"{minutes}m"
-
-
-def memory() -> tuple[int, int]:
-    """(used_bytes, total_bytes)."""
-    try:
-        import psutil
-
-        usage = psutil.virtual_memory()
-        return usage.used, usage.total
-    except Exception:
-        return (0, 0)
-
-
-def disk(path: str = "/") -> tuple[int, int]:
-    """(used_bytes, total_bytes) for a mount point."""
-    try:
-        import psutil
-
-        usage = psutil.disk_usage(path)
-        return usage.used, usage.total
-    except Exception:
-        return (0, 0)
 
 
 def cpu_temperature_c() -> float | None:
